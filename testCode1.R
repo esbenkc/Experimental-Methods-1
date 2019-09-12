@@ -6,7 +6,7 @@ library(Rcmdr)
 library(ggvis)
 library(class)
 
-setwd("C:/Users/esben/Desktop/Study/Experimental Methods/R")
+setwd("C:/Users/esben/Documents/Experimental-Methods-1")
 
 
 # Friend data test
