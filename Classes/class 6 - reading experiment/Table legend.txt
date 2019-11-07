@@ -1,0 +1,18 @@
+Column keys for MRC psycholinguistics database
+
+(For details on the metrics httpwebsites.psychology.uwa.edu.auschoolMRCDatabasemrc2.html)
+
+nlet number of letters in the word
+nsyl number of syllables in the word
+kf_freq Kucera and Francis written frequency
+kf_ncats Kucera and Francis number of categories
+fk_nsamp Kucera and Francis number of samples
+tl_freq Thorndike-Lorge frequency
+brown_freq; Brown verbal frequency
+fam Familiarity
+conc Concreteness
+imag Imageability
+meanc mean Colerado Meaningfulness
+meanp mean Pavio meaningfulness
+aoa age of acquisition
+word the actual word

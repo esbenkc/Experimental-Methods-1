@@ -1,0 +1,460 @@
+---
+title: "Class4_notes"
+author: "Anita"
+date: "9/26/2019"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Welcome to Class 4
+
+Today we will be looking into assumptions of normality and ways to check them! The functions we will be using today come from packages 'tidyverse' and 'pastecs'. Make sure you load them in the chunk below:
+
+```{r load/install packages}
+library(pacman)
+p_load(tidyverse)
+p_load(pastecs)
+```
+
+Make a new R code chunk using keyboard shortcut
+Ctrl + Alt + I (Cmd + Option + I on macOS). 
+
+Once the code chunk appears, change the name of the chunk, so it looks like this (you can choose the name yourself):
+{r nameofthechunk}
+
+Then, import the personality test data inside of it, using read.csv() function. Note, that I called it 'df', which is called upon a lot of times in this document further on. If you choose another identifier, you'll have to switch all of 'df' in the code to your identifier :) 
+
+To set working directory to the location of the data file, either save this R Markdown file into the same folder as data,or use knitr::opts_knit$set(root.dir = 'Path to the folder with the file'). 
+
+```{r reading personality data}
+df <- read.csv("NEW_CogSciPersonalityTest2019.csv")
+
+```
+
+
+### Part 1: Visually comparing measurements across different groups of partcipants
+
+#### Bar plot, box plot, violin plot
+
+    "The boxplot compactly displays the distribution of a continuous variable. It visualises five summary statistics (the median, two hinges and two whiskers), and all "outlying" points individually."
+  
+    credit and more info: https://ggplot2.tidyverse.org/reference/geom_boxplot.html
+  
+
+Box plots are more informative than bar plots!
+
+Even more information can be displayed with a violin plot!
+  
+  
+    "The idea of a violin plot is to combine a box plot with a density plot. Since it relies on density estimation, the plot only makes sense if a sufficient number of data are available for obtaining reliable estimates"
+  
+    credit and more info: https://www.r-bloggers.com/box-plot-alternatives-beeswarm-and-violin-plots/ 
+    
+To see for yourself the same data represented using these different plots, run the chunk below:
+
+```{r}
+#I will use the ggplot base, theme and labels several times, so I wrote it down as a variable 'rplot'
+rplot <- ggplot(df, aes(x = df$gender, y = df$ratio2d4d, colour = df$gender)) +
+  theme_minimal() +
+    labs(x = "Gender", y = "Ratio 2D:4D") 
+
+#Bar plot
+rplot +
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.25, fill = 'white') +
+  ggtitle("Bar plot")
+
+#Box plot
+rplot +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Box Plot")
+
+
+#Violin plot
+rplot +
+  geom_violin() +
+  ggtitle("Violin Plot") 
+
+```
+
+
+Box plots show the median line in the middle and violin plot doesn't have any lines at all. So if we want to see the mean as well, we should ask for it using stat_summary:
+
+```{r}
+
+#Box plot
+rplot +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Box Plot with mean") +
+  stat_summary(fun.y = mean, geom = "point", shape = 23, colour = "Black") #draw a point for the mean
+
+
+#Violin plot
+rplot +
+  geom_violin() +
+  ggtitle("Violin Plot") +
+  stat_summary(fun.y = mean, geom = "point", shape = 23, colour = "Black") #draw a point for the mean
+
+```
+
+
+#### Exercise for Part 1
+
+1. Numerically compare mean values of hours_music_per_week data between people who prefer Option L and Option S in taste_cola.
+
+```{r}
+df %>% group_by(taste_cola) %>% summarise(mean_music = mean(hours_music_per_week))
+
+```
+
+
+2. Make a corresponding box plot (that is also showing the mean) and discuss if the box plot changes your interpretation of mean values in the groups. 
+
+```{r}
+e_boxplot <- function(x){
+  ggplot(x, aes(x = taste_cola, y = hours_music_per_week, color = taste_cola)) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean)
+}
+
+e_boxplot(df)
+```
+The box plot shows that there's a lot of outliers above the upper whisker which might skew the mean (especially at option S).
+
+3. Do you think something is abnormal about our data? Are some data points problematic? Try to fix it and see what changes when you make a new plot.
+
+Yes, there are a lot of data points beyond the upper whisker. Let's remove some of the extreme outliers (>40 hours).
+
+```{r}
+in_df <- df[df$hours_music_per_week <= 3 * sd(df$hours_music_per_week),]
+e_boxplot(in_df)
+in_df %>% group_by(taste_cola) %>% summarise(mean_music = mean(hours_music_per_week))
+
+```
+
+--- 
+
+### Part 2: Mean + Error bars, confidence intervals 
+
+Out of all plots above, we can derive some information about our data and see some differences between groups. We even plotted the mean values, so we can visually compare them. It is however hard to say, how prominent is the difference between the means. One of ways to understant difference between mean values better is to draw confidence intervals. By comparing the confidence intervals of different means we can start to get some idea about whether the means came from the same population or different populations. 
+
+Confidence intervals are often visualized as error bars. Error bars can be drawn using geom_errorbar() and stat_summary(fun.data = , geom = "errorbar")
+
+An error bar can represent the standard deviation, or the standard error, but more often than not it shows the 95% confidence interval of the mean. 
+
+Run the chunk below to see different types of errorbars on the same data.
+```{r}
+#Visualizing mean and standard deviation - error bar is drawn using (mean - sd) as minimal point of the bar and (mean + sd) as upper point
+rplot +
+  geom_bar(aes(fill=gender), stat='summary', fun.y = mean, width = 0.5) +
+  geom_errorbar(aes(ymin = mean(df$ratio2d4d) - sd(df$ratio2d4d), ymax = mean(df$ratio2d4d) + sd(df$ratio2d4d)), width = 0.1, color = 'black') +
+  ggtitle("Using Standard Deviation")+
+  ylim(NA, 1.5) #just making sure that y-axis is consistent in all of the graphs by changing its limits (from the most minimal possible value to 1.5)
+
+
+#Visualizing mean and standard error of the mean
+rplot +
+  geom_bar(aes(fill=gender), stat='summary', fun.y = mean, width = 0.5) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = 'black', width = 0.1) +
+  ggtitle("Using Standard Error of the Mean")+
+  ylim(NA, 1.5) #limiting the y axis 
+
+#Visualizing mean and 95% confidence intervals using stat_
+rplot +
+  geom_bar(aes(fill=gender), stat='summary', fun.y = mean, width = 0.5) +
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", color = 'black', width = 0.1) +
+  ggtitle("Using 95% Confidence Intervals")+
+  ylim(NA, 1.5) #limiting the y axis
+
+```
+
+
+
+*Standard deviation* is a measure of dispersion of the data from the mean.
+
+    "Small standard deviations represented a scenario in which most data points were close to the mean, a large standard deviation represented a situation in which data points were widely spread from the mean" - Field
+   
+   
+    
+*Standard error of the mean* is a measure of how precise is our estimate of the mean. 
+
+    "it is a measure of how representative a sample is likely to be of the population. A large standard error (relative to the sample mean) means that there is a lot of variability between the means of different samples and so the sample we have might not be representative of the population. A small standard error indicates that most sample means are similar to the population mean and so our sample is likely to be an accurate reflection of the population" - Field
+
+
+
+*95% Confidence Interval*: when you see a 95% confidence interval for a mean, think of it like this: if we’d collected 100 samples, calculated the mean and then calculated a confidence interval for that mean then for
+95 of these samples, the confidence intervals we constructed would contain the true value of the mean in the population.
+
+
+
+
+So what should we draw?
+
+    "It depends. If the message you want to carry is about the spread and variability of the data, then standard deviation is the metric to use. If you are interested in the precision of the means or in comparing and testing differences between means then standard error is your metric. Of course deriving confidence intervals around your data (using standard deviation) or the mean (using standard error) requires your data to be normally distributed"
+     
+     source: https://www.r-bloggers.com/standard-deviation-vs-standard-error/ 
+    
+    
+    "An error bar can represent the standard deviation, or the standard error, but more often than not it shows the 95% confidence interval of the mean" - Field
+    
+
+
+#### Part 2 Exercise
+Modify the last boxplot you made in Part 1 Exercises by adding various error bars to it. Which one do you think works the best for comparing mean values of different groups?
+
+```{r}
+
+e_boxplot(in_df) +
+  stat_summary(fun.y = "mean", geom = "point", color = "black") +
+  stat_summary(fun.data = "mean_se", geom = "errorbar", color = "black", width = 0.1),
+
+round(stat.desc(df$hours_music_per_week, basic = F, norm = T), digits = 4)
+
+```
+
+
+--- 
+
+### Part 3: Assumptions of normality
+
+Let's fabricate some perfectly normally distributed data, so we can then compare it to our actual data! 
+
+NB! We will do this just for educational purposes! After this class, when you will do your portfolio, you will just check your actual data and make judgement about its distrubution without comparing it to a fabricated normal distirbution.
+
+```{r}
+#make some random normally distributed data with sample size of 62 and mean scores resembling mean scores of actual data
+normdist <- data.frame(hours_music_per_week = rnorm(62, mean = 13.74), shoesize = rnorm(62, mean = 40.65))
+
+qqnorm(normdist$hours_music_per_week)
+
+```
+
+
+#### Checking assumptions visually:
+
+##### Histogram + Normal curve
+
+Histograms can be used to inspect distributions in your data 
+X-axis represents the different values in your variable 
+Y-axis represents
+  – counts (how many times does this value occur?)
+  OR
+  - density (what percentage of the total data has this value?) 
+  
+Plotting normal curve: stat_function(fun = dnorm, args = list(mean = mean(data$ColumnOfInterest, na.rm = TRUE), sd = sd(data$ColumnOfInterest, na.rm = TRUE)), colour= "black", size = 1)
+
+```{r}
+ggplot(normdist, aes(x = hours_music_per_week)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25, color = "black", fill = "white") +
+  ggtitle("This is what music time would look like if it was normally distributed") +
+  stat_function(fun = dnorm, args = list(mean = mean(normdist$hours_music_per_week, na.rm = TRUE), sd = sd(normdist$hours_music_per_week, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+
+ggplot(df, aes(x = hours_music_per_week)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("This is what music time actually looks like") +
+  stat_function(fun = dnorm, args = list(mean = mean(df$hours_music_per_week, na.rm = TRUE), sd = sd(df$hours_music_per_week, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+#Remember we removed the outlier of 100 hours of music per week? Let's do the same graph for the filtered data 
+ggplot(in_df, aes(x = hours_music_per_week)) + #note that I use 'filtered' dataframe here :) It might be called differently for you
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("This is what music time looks like without the biggest outlier") +
+  stat_function(fun = dnorm, args = list(mean = mean(in_df$hours_music_per_week, na.rm = TRUE), sd = sd(in_df$hours_music_per_week, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+```
+
+
+
+
+##### QQ-plot
+Tests the emperical, z-scored data against the theoretical, normally distributed data using qqnorm(data$column)
+
+```{r}
+ #qq-plot of fabricated normally distributed data
+qqnorm(normdist$hours_music_per_week)
+
+#qq-plot of actual data
+qqnorm(df$hours_music_per_week)
+
+#qqplot after removing the outlier
+qqnorm(in_df$hours_music_per_week)
+```
+
+
+
+#### Checking assumptions numerically:
+
+We use stat.desc() function from library 'pastecs'. We exclude basic metrics by writing basic = FALSE and include normality test by writing norm = TRUE. For ease of interpretation, we round the results of stat.desc using function round(), where we first specify the object to round up and then specify how many signs after coma we want to see. As a result we get a long line:
+
+```{r}
+
+#normality test and other metrics for hours_music_per_week
+round(pastecs::stat.desc(df$hours_music_per_week, basic = FALSE, norm = TRUE), digits = 2)
+
+```
+
+
+We can also use cbind() function to perform stat.desc on multiple columns at the same time (columns don't have to be from the same dataframe):
+```{r}
+round(pastecs::stat.desc(cbind(normdist$hours_music_per_week, df$hours_music_per_week), basic = FALSE, norm = TRUE), digits = 2)
+```
+
+
+Understanding the statistic of a Shapiro-Wilk test of normality (normtest.W) and its associated probability (normtest.p):
+
+  If the test is non-significant (p>.05) it tells us that the distribution of the sample is not significantly different from a normal distribution. If, however, the test is significant (p < .05) then the distribution in question is significantly different from a normal distribution.
+  
+    Credit: http://bradleyboehmke.github.io/tutorials/assumptions_normality#shapiro
+
+
+#### Part 3 Exercises
+1.  Make a histogram of the variable where participant chose a random number
+
+```{r}
+ggplot(df, aes(x = df$choose_rand_num)) +
+  geom_histogram()
+```
+
+2. Change the y-axis so it displays densities instead of counts
+
+```{r}
+ggplot(df, aes( sample = df$shoesize )) + qqplot() + qqplot_line()
+```
+
+
+3. Add a normal curve to the plot – is this data normally distributed? If not, what is ”wrong” with it?
+
+
+4. Are shoe size data normally distributed? Provide visual (histogram with normal curve; qqplot) and numerical evidence (the statistic of a Shapiro-Wilk test) for your claim.
+
+---
+
+### Part 4: Data transformation
+From Fabio's slides:
+- Positive skew or Unequal variances ->   log transformation: log(Xi)
+              Limmits: Can’t deal with negative numbers
+              R syntax: log()
+
+- Positive skew or Unequal variances -> square root transformation: √Xi
+              Limits: Bigger effect than log(), still can’t deal with negative numbers
+              R syntax: sqrt()
+
+- Positive skew - Unequal variances ->reciprocal transformation: 1/Xi
+              Limits: Good for negative numbers, but reverses scores
+              R syntax: 1/...
+
+- Negative skew -> Reverse score transformations
+              Reverse the data (Xi-max(X)) before running any of the above transformations
+
+
+mutate() from tidyverse is really good for transforming data:
+
+```{r}
+mdf <- df %>% mutate(hours_log = log(hours_music_per_week)) #log transformation
+
+ggplot(mdf, aes(x = hours_log)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25, color= 'black', fill = 'white') +
+  ggtitle("Log trasnformed") +
+  stat_function(fun = dnorm, args = list(mean = mean(mdf$hours_log, na.rm = TRUE), sd = sd(mdf$hours_log, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+```
+
+
+#### Part 4 Exercises:
+1. Make a new dataset and add 3 new columns with mutate: log(hours_music_per_week), sqrt(hours_music_per_week) and 1/hours_music_per_week
+2. Make histograms of the transformed data and look at the discriptive statistics of these new variables – which transformation should we choose?
+
+
+---
+
+### Part 5: Good-to-know ggplot stuff 
+
+Useful geom: geom_point() to make scatterplot and see relationship between two continuous measures.
+
+```{r}
+ggplot(df, aes(x = breath_hold, y = tongue_twist)) +
+  geom_point() 
+```
+
+
+
+
+Aesthetics can be specified in different places, not just in the base layer:
+
+```{r}
+ggplot(df) + #no aesthetics in the base
+  geom_point(aes( x = choose_rand_num, y = sound_level_pref)) #aesthetics specified in geom
+```
+
+
+
+Memorizing a ggplot and then adding geoms to the memorized variable can be easier (Example from Part 1)
+```{r}
+#I will use the ggplot base, theme and labels several times, so I wrote it down as a variable 'rplot'
+rplot <- ggplot(df, aes(x = df$gender, y = df$ratio2d4d, colour = df$gender)) +
+  theme_minimal() +
+    labs(x = "Gender", y = "Ratio 2D:4D") 
+
+#Bar plot
+rplot +
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.25, fill = 'white') +
+  ggtitle("Bar plot")
+
+# #is easier than repeating all 6 lines every time you change a geom:
+# ggplot(df, aes(x = df$gender, y = df$ratio2d4d, colour = df$gender)) +
+#   theme_minimal() +
+#   labs(x = "Gender", y = "Ratio 2D:4D") +
+#   geom_bar(stat = 'summary', fun.y = mean, width = 0.25, fill = 'white') +
+#   ggtitle("Bar plot")
+
+```
+
+
+
+Faceting
+  We can present the same plot in different groups by faceting it.
+  To use faceting in a plot, we can use facet_wrap( ~ y, nrow = integer, ncol = integer)
+  
+  For instance, we can plot how mean shoesize differs depending on gender in every of three handedness groups by writing the following code:
+
+```{r}
+ggplot(df, aes(x = df$gender, y = df$shoesize, fill = gender)) +
+  facet_wrap(~handedness) + #faceting by handedness 
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.25)+
+  theme_minimal() +
+  labs(x = "Gender", y = "Shoesize") +
+  ggtitle("Faceting")
+
+```
+
+
+Saving ggplot (into your working directory)
+
+```{r}
+plot1 <- ggplot(df, aes(x=shoesize)) + geom_bar() #write a plot down (store it in the environment)
+ggsave("myggplot.png")  # saves the last plot.
+ggsave("mystoredggplot.png", plot=plot1)  # save a stored ggplot
+```
+
+#### Part 5 Exercises
+1. Make a scatterplot showing balloon balance time against tongue twister time, write that plot down as a variable
+2. Check if there are national differences in balloon balance time in relation to tongues twister time. Do so by using faceting by native language on the variable you made in Question 1
+3. Save the faceted ggplot into your working directory as a png file.
+
+
+
+#### Optional R Markdown stuff
+In the very top of your document you wrote your name to the 'author'. Try to add a hyperlink to your GitHub to your name there in the similar format:
+author: "[Anita Kurm](https://kbroman.org)"
+
+Knit your rmarkdown and see if the link works :) 
+
+### Homework:
+Finish your Portfolio and submit it on bb!
+

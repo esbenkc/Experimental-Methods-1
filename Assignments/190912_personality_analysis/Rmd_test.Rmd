@@ -1,0 +1,185 @@
+---
+title: "Rmd_test"
+author: "Esben Kran Christensen"
+date: "9/19/2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Educational Influence on Cultural Gender Differences
+## Introduction
+Cultural expectations influence how thoughtful and brazen people are. The initial theory is that males are culturally pushed towards being brazen and not necessarily thoughtful about actions while females are taught to be more careful, thoughtful, and held back in social expectant scenarios.
+
+```{r}
+library(pacman)
+p_load(tidyverse)
+p_load(tinytex)
+
+```
+
+## Theory
+Blablablabla
+
+```{r}
+
+df <- read_csv("NEW_cogSciPersonalityTest2019.csv")
+summarise(df, mean(df$shoesize))
+summarise(df, mean(df$shoesize), sd(df$shoesize))
+          
+```
+
+### Buchi kachi
+```{r}
+#group data by gender
+grouped_bygender <- group_by(df, gender)
+
+#group data by native language
+grouped_bylanguage <- group_by(df, native_Danish)
+
+grouped_bylanguage
+
+```
+
+### Breath_hold
+```{r}
+summarise(grouped_bygender, mean(breath_hold))
+
+```
+
+### Tongue_twist
+```{r}
+summarise(grouped_bylanguage, mean(tongue_twist), sd(tongue_twist))
+
+```
+
+### Pipes
+```{r}
+grouped_data <- group_by(df, gender) 
+summary_shoe_bygender <- summarise(grouped_data, mean(shoesize))
+
+#call the variable to see the summary output
+summary_shoe_bygender
+
+```
+
+### Sending the resultant data.frame with %>%
+```{r}
+summary_shoe_bygender2 <- df %>%  #send the df to the next line:
+  group_by(gender) %>% #group the data from the previous line by gender and send the result to the next line: 
+  summarise(mean(shoesize)) #summarise mean shoesize for data from the previous line
+
+summary_shoe_bygender2
+```
+
+### Plotting stuff with R native plot()
+```{r}
+plot(pressure)
+```
+
+### GGplot2 is much better!!
+```{r}
+ggplot(df) # the most basic setup
+
+#Examples of setups with different aesthetics:
+
+ggplot(df, aes(x=gender)) # if only X-axis is known. The Y-axis can be specified later
+
+ggplot(df, aes(x=gender, y=balloon)) # if both X and Y axes are fixed for all layers.
+
+ggplot(df, aes(x = breath_hold, fill = gender)) +
+  geom_histogram() # Each category of the 'gender' variable will now have a distinct  color, once a geom is added.
+
+
+```
+
+### More ggplot geom options:
+```{r}
+ggplot(df, aes(x=tongue_twist))+
+  geom_histogram()
+
+ggplot(df, aes(x=tongue_twist))+
+  geom_histogram(binwidth = 1) #you can change binwidth if you want to, it's cosmetic
+```
+
+### Bar plotting:
+```{r}
+ggplot(df, aes(x=gender))+ 
+  geom_bar() 
+```
+
+### Using functions inside geoms:
+```{r}
+ggplot(df, aes(x=gender, y=balloon))+
+  geom_bar(stat='summary', fun.y = mean) #we ask to show us the mean of values on y coordinate
+```
+
+### Plotting standard error with geom_errorbar()
+Needs specification in the parantheses to claculate and plot standard error of the mean :
+geom_errorbar(stat = 'summary', fun.data = mean_se) 
+
+```{r}
+ggplot(df, aes(x=gender, y=balloon))+
+  geom_bar(stat='summary', fun.y = mean)+
+  geom_errorbar(stat = 'summary', fun.data = mean_se)
+```
+
+### Prettifying the plots:
+```{r}
+ggplot(df, aes(x=gender, y=balloon, fill = gender))+
+  geom_bar(stat='summary', fun.y = mean, width = 0.5)+
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.2)+
+  labs(x = "Gender", y = "Balloon time")+
+  theme_minimal()
+```
+
+# Excercises
+### Visualization excercise
+1. Identically to bar plots we've made above, make a bar plot showing average shoesize according to handedness.
+2. Try to make it pretty!
+
+```{r}
+ggplot(df, aes(x = handedness, y = shoesize)) +
+  geom_bar(stat = 'summary',
+           fun.y = mean,
+           width = 0.5,
+           alpha = 0.7,
+           fill = "#e74c3c") +
+  geom_errorbar(stat = 'summary',
+                fun.data = mean_se,
+                width = 0.2) +
+  labs(x = "Handedness", y = "Shoe size") +
+  theme_minimal()
+```
+
+### Homework exercises
+1. Make sure to finish Part 2 - before Tuesday Cognition and Communication class (just read it and solve the 3 questions in exercises, you'll feel better in the class)
+
+2. Do the visualization exercise
+3. Play around with Ggplot! Use the ggplot cheatsheet, change different parts of your code and see what changed
+
+3.(Optional) Go through Chapter 3 in 'R for Data Science' book (http://r4ds.had.co.nz/index.html) 
+
+$$\frac s 1\sqrt (N-1) $$
+
+```{r}
+
+box_func <- function(x, y, z){
+  ggplot(x, aes(x = handedness, y = shoesize)) +
+  geom_bar(stat = 'summary',
+           fun.y = mean,
+           width = 0.5,
+           alpha = 0.7,
+           fill = "#e74c3c") +
+  geom_errorbar(stat = 'summary',
+                fun.data = mean_se,
+                width = 0.2) +
+  labs(x = "Handedness", y = "Shoe size") +
+  theme_minimal()
+} 
+```
+
