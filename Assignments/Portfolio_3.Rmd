@@ -1,30 +1,295 @@
 ---
-title: "Portfolio 3"
+title: 'Personality Data Analysis: Portfolio Project 1'
 author: "Esben Kran Christensen"
-date: "11/7/2019"
-output: pdf_document
+date: "9/21/2019"
+output:
+  bookdown::html_document2: default
+  bookdown::pdf_document2:
+    keep_tex: true
+bibliography: portfolio_3_data/bibliography.bib
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, echo=FALSE}
+library(pacman)
+p_load(tidyverse, gridExtra, WRS2, pastecs, RColorBrewer, extrafont, reshape, bookdown, reshape2, MuMin, lmertest)
+knitr::opts_chunk$set(echo = T, include = T, warning = F, tidy = T, comment = ">", fig.height = 5)
 ```
 
-## R Markdown
+# Setup
+## Reading, cleaning, and merging the data
+We start by reading the MRC psycholinguistic database [@uwa_psychology]
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+MRC <- read.csv("portfolio_3_data/MRC_database.csv")
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
+```{r}
+files <- list.files(path = "portfolio_3_data/data/original",
+                    pattern = ".csv",
+                    full.names = T)  
 
-You can also embed plots, for example:
+data <- lapply(files, read_csv) %>%  
+  plyr::rbind.fill()
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+data$RT <- ifelse(is.na(data$Reaction_Time), data$Reaction.time, data$Reaction_Time)
+data <- data[c("X1", "ID", "Age", "Gender", "Native_Language", "Stimulus", "Word", "RT")]
+data$RT <- as.numeric(data$RT)
+data$Age <- as.numeric(data$Age)
+data$Gender <- as.factor(data$Gender)
+data$Native_Language <- as.factor(data$Native_Language)
+data$Stimulus <- as.factor(data$Stimulus)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+colnames(data)[colnames(data) == "Word"] <- "word"
+data$word <- toupper(data$word)
+data$word <- str_replace_all(data$word, "[:punct:]", "")
+df <- merge(data, MRC, by = "word")
+```
+
+## Setting up theme definitions
+Data plots later in the document follow this style sheet called `theme_esben_light` that uses the Roboto font and adjusts an array of defaults. 
+```{r}
+theme_esben_light = 
+  theme_minimal() +
+  theme(
+    text = element_text(family = "Roboto"),
+    plot.margin = unit(rep(1, 4), "cm"),
+    plot.title = element_text(size = 20, 
+                              color = "#22292F",
+                              face = "bold",
+                              margin = margin(b = 10)),
+    plot.subtitle = element_text(size = 17, 
+                                 margin = margin(b = 25)),
+    plot.caption = element_text(size = 12,
+                                margin = margin(t = 15),
+                                color = "#606F7B"),
+    panel.grid.major = element_line(color = "#DAE1E7"),
+    panel.background = element_blank(),
+    axis.text = element_text(size = 12, color = "#22292F"),
+    axis.text.x = element_text(margin = margin(t = 5)),
+    axis.text.y = element_text(margin = margin(r = 5)),
+    axis.title = element_text (size = 15),
+    axis.line = element_line(color = "#3D4852"),
+    axis.title.y = element_text(margin = margin(r = 10),
+                                hjust = 0.5),
+    axis.title.x = element_text(margin = margin(t = 10),
+                                hjust = 0.5))
+```
+
+Creating a function to show histograms with function for the normal distribution (bell curve)
+```{r}
+esben_freq_dist <- function(dataframe, x, title) {
+  ggplot(dataframe, aes(x = x)) +
+    geom_histogram(colour = "black",
+                   aes(y = ..density.., fill = ..count..)) +
+    scale_fill_gradient2(low = "purple", mid = "purple", high = "blue", "Count") +
+    stat_function(
+      fun = dnorm,
+      color = "orangered2",
+      size = 1,
+      args = list(mean = mean(x),
+                  sd = sd(x))
+    ) +
+    labs(
+      title = title,
+      subtitle = "Histogram with norm dist",
+      x = "Time",
+      y = "Density"
+    ) +
+    theme_esben_light
+}
+```
+
+
+## Checking normality and removing outliers
+Start by plotting the reading time data to see how it is distributed.
+```{r}
+esben_freq_dist(df, df$RT, "Reading time histogram")
+
+```
+
+There are some big outliers on the histogram so we'll remove these and plot the data again.
+```{r}
+df <- df[df$RT < 3 * sd(df$RT),]
+esben_freq_dist(df, df$RT, "Reading time histogram")
+
+```
+
+
+Checking normality with the Shapiro-Wilks test:
+```{r}
+round(stat.desc(df$RT, norm = T), 2)
+shapiro.test(df$RT)
+```
+The Shapiro-Wilks test shows that the data is not normally distributed at all but we will continue checking visually as the histogram data shows large adherence to the normal distribution (red curve).
+
+We check further for normality in the reading time data using a visualization of the qqplot to see if it adheres to the normal line:
+```{r}
+ggplot(df, aes(sample = RT)) + 
+  stat_qq() + 
+  stat_qq_line() +
+  labs(title = "QQ plot of RT with normal line",
+       y = "Reading Time", 
+       x = "Expected value"
+       ) +
+  theme_esben_light
+
+```
+
+As we can see a curve in the RT values, we will use a logarithmic transformation on the data and plot the qqplot again:
+
+```{r}
+df$logRT <- log(df$RT)
+
+ggplot(df, aes(sample = logRT)) + 
+  stat_qq() + 
+  stat_qq_line() +
+  labs(title = "QQ plot of logarithmic reading time with normal line",
+       y = "Reading Time", 
+       x = "Expected value"
+       ) +
+  theme_esben_light
+
+```
+
+This seems more plausable and looks to adhere to the normal distribution. We will plot the histogram again:
+```{r}
+esben_freq_dist(df, df$logRT, "Log(reading time) histogram")
+
+```
+If we plot this using a linear regression model, we can analyze further:
+```{r}
+ggplot(df, aes(x = df$RT, y = ..count..))
+```
+
+
+
+## Checking assumptions
+
+So let's check if the reading time matches the length of the words:
+```{r}
+ggplot(df, aes(x = nlet, y = RT)) +
+  geom_point() +
+  labs(title = "Scatterplot with RT and nlet",
+       y = "RT",
+       x = "nlet") +
+  geom_smooth(method = "lm", se = F) +
+  theme_esben_light
+
+cor.test(df$RT, df$nlet, method = "spearman")
+
+```
+
+Standardizing and histogramming data
+```{r}
+df$standardRT <- scale(df$logRT)
+
+esben_freq_dist(df, df$standardRT, "Histogram of reaction time")
+
+```
+
+# Which properties of words correlate with word-by-word reading times?
+## Correlation matrix analysis
+Correlation matrix:
+```{r}
+selection <-
+  df[, c(
+    "RT",
+    "nlet",
+    "nsyl",
+    "kf_freq",
+    "kf_ncats",
+    "kf_nsamp",
+    "tl_freq",
+    "brown_freq",
+    "fam",
+    "conc",
+    "imag",
+    "meanc",
+    "meanp",
+    "aoa"
+  )]
+cormat <- round(cor(selection), 2)
+
+cormat[upper.tri(cormat)] <- NA
+
+melted_cormat <- melt(cormat)
+
+ggplot(melted_cormat, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "#58508d",
+    mid = "white",
+    high = "#ff6361",
+    midpoint = 0,
+    limit = c(-1, 1),
+    space = "Lab",
+    name = "Pearson\ncorrelation",
+    na.value = "white"
+  ) +
+  theme_esben_light +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.justification = c(1, 0),
+    legend.position = c(0.6, 0.7),
+    legend.direction = "horizontal"
+  ) +
+  guides(
+    fill = guide_colorbar(
+      barwidth = 7,
+      barheight = 1,
+      title.position = "top",
+      title.hjust = 0.5
+    ),
+    axis.text.x = element_text(
+      angle = 90,
+      vjust = 0.5,
+      hjust = 1
+    )
+  ) +
+  geom_text(aes(Var1, Var2, label = value),
+            color = "black",
+            size = 4) 
+
+```
+An array of pretty large effect correlations are present but none of them show up at the reading time statistic's correlation with any other variable. There 
+
+
+## Word length and reading time
+
+## Word difficulty and reading time
+
+
+# How do semantic-contextual expectations alter reading times?
+## Investigating valence of unexpected word: 'Honey' and 'juice'
+Single out the specific reading time for the target word (i.e., the words that differ between the two versions of your text/story) as well as the following word. Compare the means of the reading times for those words (independently) across conditions using the appropriate type of t-test.
+
+```{r}
+n <- as.numeric(filter(df, df$word == "JUICE")[1,]["X"]) # Index of the word "juice" in the text
+
+stim <- filter(df, df$X == n)
+
+t.test(stim[stim$Stimulus == 1,]$RT, stim[stim$Stimulus == 2,]$RT)
+
+```
+
+Plotting the scatterplots
+```{r}
+ggplot(stim, aes(x = stim$Stimulus, y = stim$RT)) +
+  geom_boxplot()
+
+
+```
+
+
+# Conclusions
+In spite of the ducks of life.
+

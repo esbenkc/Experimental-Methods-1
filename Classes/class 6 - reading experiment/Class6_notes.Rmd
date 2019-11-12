@@ -54,8 +54,10 @@ data$RT <- ifelse(is.na(data$Reaction_Time), data$Reaction.time, data$Reaction_T
 
 data1 <- data %>% filter(is.na(Reaction.time)) %>% dplyr::rename(RT = "Reaction_Time") %>% 
   select(-Reaction.time)
+
 data2 <- data %>% filter(is.na(Reaction_Time)) %>% dplyr::rename(RT = "Reaction.time") %>% 
-  select(-Reaction_Time)
+    select(-Reaction_Time)
+
 data <- rbind(data1, data2)
 
 ```
